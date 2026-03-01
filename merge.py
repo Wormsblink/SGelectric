@@ -1,46 +1,36 @@
 import os
-from time import sleep
 import pandas as pd
-cwd = os.path.abspath('') 
-files = os.listdir(cwd) 
+import zipfile
 
-if os.path.isfile('alldays.csv'):
-	os.remove('alldays.csv')
-else:
-	print('alldays.csv not found')
+def merge_csv(folder_name,output_file_name):
+	filepaths = get_filepaths("/" + folder_name)
 
-sleep(0.4)
+	compiled_df = pd.DataFrame()
 
-df = pd.DataFrame()
-df2 = pd.DataFrame()
-for file in files:
-		if file.endswith('.csv'):
-				print("Reading next csv file")
-				df = df.append(pd.read_csv(file)) 
-		if file.endswith('.xlsx'):
-				print("Reading next xlsx file")
-				df2 = df2.append(pd.read_excel(file))
+	for filepath in filepaths:
+		if filepath.endswith('.zip'):
+			with zipfile.ZipFile(filepath) as zf:
+				for filename in zf.namelist():
+					zipped_file_names = zf.getinfo(filename)
+					with zf.open(filename, 'r') as csv_file:
+						df = pd.read_csv(csv_file)
 
-df = df[['DATE','PERIOD','USEP ($/MWh)','DEMAND (MW)']]
+						compiled_df = compiled_df._append(df)
 
-df["DATE"] = pd.to_datetime(df["DATE"])
-df2["DATE"]=pd.to_datetime(df2["DATE"])
+	compiled_df.to_csv(output_file_name)
 
-df = df.groupby(['DATE']).mean()
+	return (output_file_name)
 
-df.sort_values('DATE',inplace=True)
-df.reset_index(drop=False, inplace=True)
 
-df = df[['DATE','USEP ($/MWh)', 'DEMAND (MW)']]
+def get_filepaths(folder_name):
+	filepaths = []
+	current_dir = os.getcwd()
+	folder_dir = current_dir + folder_name
+	files_list = os.listdir (folder_dir)
 
-df.reset_index(drop=True, inplace=True)
+	for file in files_list:
+		filepaths.append(os.path.join(folder_dir,file))
+	
+	return filepaths
 
-df2.set_index('DATE')
-
-df['AnnualAve'] = df['USEP ($/MWh)'].rolling(365).mean()
-
-df = pd.merge(df,df2, how='outer')
-
-print(df.head())
-
-df.to_csv('alldays.csv')
+#merge_csv("USEP Data","Compiled USEP Data.csv")
