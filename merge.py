@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import zipfile
+from datetime import datetime
 
 def merge_csv(folder_name,output_file_name):
 	filepaths = get_filepaths("/" + folder_name)
@@ -15,12 +16,14 @@ def merge_csv(folder_name,output_file_name):
 					with zf.open(filename, 'r') as csv_file:
 						df = pd.read_csv(csv_file)
 
-						compiled_df = compiled_df._append(df)
+						compiled_df = compiled_df._append(df, ignore_index = True)
 
+	compiled_df["DATE"] = pd.to_datetime(compiled_df["DATE"].apply(parse_date))
+
+	compiled_df = compiled_df.sort_values(by=["DATE","PERIOD"])
 	compiled_df.to_csv(output_file_name)
 
 	return (output_file_name)
-
 
 def get_filepaths(folder_name):
 	filepaths = []
@@ -32,5 +35,13 @@ def get_filepaths(folder_name):
 		filepaths.append(os.path.join(folder_dir,file))
 	
 	return filepaths
+
+def parse_date(datestring):
+	try:
+		parsed_date = datetime.strptime(datestring,"%d %b %Y")
+	except:
+		parsed_date = datetime.strptime(datestring,"%d-%b-%Y")
+
+	return (parsed_date)
 
 #merge_csv("USEP Data","Compiled USEP Data.csv")
