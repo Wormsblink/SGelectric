@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 
 import matplotlib
-from matplotlib import animation
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.dates import DateFormatter
@@ -22,39 +21,60 @@ def main():
 	merge.merge_csv(USEP_Folder, USEP_Compiled_File)
 
 	df = pd.read_csv(USEP_Compiled_File, usecols=["DATE","USEP ($/MWh)", "DEMAND (MW)"])
-	df = add_daily_average(df, "USEP ($/MWh)","DAILY USEP ($/MWh)")
+	df = add_daily_average(df, "USEP ($/MWh)","DAILY AVERAGE USEP ($/MWh)", 48)
 
 	#df.to_csv("test.csv")
 
-	animated_gif = create_image(df, "DATE", "DAILY USEP ($/MWh)","DEMAND (MW)")
-	animated_gif.show()
+	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","DEMAND (MW)")
 
-def add_daily_average(df, target_col, new_col_name):
-	df[new_col_name] = df[target_col].rolling(48).mean()
+def add_daily_average(df, target_col, new_col_name, interval):
+	df[new_col_name] = df[target_col].rolling(interval).mean()
 	df = df.iloc[24::48, :]
 	return df
 
-def create_image(df, date_col_name, *args):
+def create_animation(df, date_col_name, *args):
 
 	fig = plt.figure()
-	plt.xlabel(date_col_name)
+	
+	plt.xlabel("Dates")
 	fig.get_axes()[0].set_axis_off()
-
-	x = get_dates_list(df, "DATE")
-
+	
 	for row_pos,dataset in enumerate(args):
-		newline = df[dataset].values.tolist()
-	
-		ax = fig.add_subplot(len(args),1,row_pos+1, sharex = fig.get_axes()[0])
-		ax.plot(x, newline, label = dataset)
-		ax.legend(loc = 'upper right')
-	
-	plt.tight_layout()
+		ax = fig.add_subplot(len(args),1,row_pos+1, sharex = fig.get_axes()[0], label = dataset)
+		ax.set_title(dataset)
 
-	return plt
+	ani = FuncAnimation(fig, create_image, len(df.index), fargs=[fig, df, *args])
+	
+	fig.autofmt_xdate()
 
-def get_dates_list(df, date_col_name):
-	raw_dates = df[date_col_name].values.tolist()
+	plt.show()
+
+	return None
+
+def create_image(end_frame, fig, df, *args):
+
+	newlines = ()
+	start_frame = 0
+	
+	if end_frame>28:
+		start_frame = end_frame-28
+
+	for axes_pos,dataset in enumerate(args):
+		
+		target_axes = fig.get_axes()[axes_pos+1]
+
+		for current_lines in list(target_axes.lines):
+   			current_lines.remove()
+
+		newline = (target_axes.plot(get_dates_list(df)[start_frame:end_frame],df[dataset].values.tolist()[start_frame:end_frame], color = "black"),)
+		newlines = newlines + newline
+
+		target_axes.set_xlim(get_dates_list(df)[start_frame],get_dates_list(df)[end_frame])
+
+	return newlines
+
+def get_dates_list(df):
+	raw_dates = df["DATE"].values.tolist()
 
 	parsed_dates = []
 
