@@ -1,12 +1,12 @@
 import merge
+
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
-import matplotlib
+from matplotlib.artist import Artist
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from matplotlib.dates import DateFormatter
 
 #temp
 import time
@@ -19,21 +19,27 @@ BRENT_Folder = "Oil Data"
 BRENT_Compiled_File = "Compiled BRENT Data.csv"
 
 #plt.rcParams.update({'font.size': 16})
-plt.rcParams['figure.figsize'] = 12.5, 7
+plt.rcParams['figure.figsize'] = 14, 7
+
+Averaging_Interval = 28
 
 def main():
 	merge.USEP_merge_csv(USEP_Folder, USEP_Compiled_File)
 	merge.BRENT_merge_csv(BRENT_Folder, BRENT_Compiled_File)
 
 	df = pd.read_csv(USEP_Compiled_File, usecols=["DATE","USEP ($/MWh)", "DEMAND (MW)"])
-	df2 = pd.read_csv(BRENT_Compiled_File)
+	
 
 	df = add_daily_average(df, "USEP ($/MWh)","DAILY AVERAGE USEP ($/MWh)", 48)
-	df = add_daily_value(df, df2,"DATE","observation_date")
+	df = add_daily_average(df, "DEMAND (MW)", "DAILY POWER DEMAND (MW)", 48)
+	df = df.iloc[24::48, :]
 
+	df2 = pd.read_csv(BRENT_Compiled_File)
+	df = add_daily_value(df, df2,"DATE","observation_date")
+	df = df.rename(columns={"DCOILBRENTEU":"BRENT CRUDE ($/BBL)"})
 	df.to_csv("test.csv")
 
-	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","DCOILBRENTEU","DEMAND (MW)")
+	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","BRENT CRUDE ($/BBL)","DAILY POWER DEMAND (MW)")
 
 def add_daily_value(df, df2, df_date_col, df2_date_col):
 	df = df.join(df2.set_index(df2_date_col), on=df_date_col)
@@ -43,7 +49,6 @@ def add_daily_value(df, df2, df_date_col, df2_date_col):
 
 def add_daily_average(df, target_col, new_col_name, interval):
 	df[new_col_name] = df[target_col].rolling(interval).mean()
-	df = df.iloc[24::48, :]
 	return df
 
 def create_animation(df, date_col_name, *args):
@@ -53,23 +58,25 @@ def create_animation(df, date_col_name, *args):
 	plt.xlabel("Dates")
 	fig.get_axes()[0].set_axis_off()
 	
+	dates_list = get_dates_list(df)
+
 	for row_pos,dataset in enumerate(args):
 		ax = fig.add_subplot(len(args),1,row_pos+1, sharex = fig.get_axes()[0], label = dataset)
 		ax.set_title(dataset)
 
-	ani = FuncAnimation(fig, create_image, len(df.index), fargs=[fig, df, *args])
+	ani = FuncAnimation(fig, create_image, len(df.index), fargs=[fig, df, dates_list, *args])
 	
 	fig.autofmt_xdate()
-	#plt.show()
-	ani.save("USEP_animated.gif", fps=15)
+	plt.show()
+	#ani.save("USEP_animated.gif", fps=15)
 
 	return None
 
-def create_image(end_frame, fig, df, *args):
+def create_image(end_frame, fig, df, dates_list, *args):
 
 	newlines = ()
 	start_frame = 0
-	
+
 	if end_frame>365:
 		start_frame = end_frame-365
 
@@ -80,13 +87,61 @@ def create_image(end_frame, fig, df, *args):
 		for current_lines in list(target_axes.lines):
    			current_lines.remove()
 
-		newline = (target_axes.plot(get_dates_list(df)[start_frame:end_frame],df[dataset].values.tolist()[start_frame:end_frame], color = "black"),)
+		dataset_values = df[dataset].values.tolist()
+
+		newline = (target_axes.plot(dates_list[start_frame:end_frame],dataset_values[start_frame:end_frame], color = "black"),)
 		newlines = newlines + newline
 
-		target_axes.set_xlim(get_dates_list(df)[start_frame],get_dates_list(df)[end_frame])
+		axes_min_x = dates_list[start_frame]
+		axes_max_x = dates_list[end_frame]
+		axes_min_y = get_min_value_dataset(df,dataset,start_frame,end_frame)*0.9
+		axes_max_y = get_max_value_dataset(df,dataset,start_frame,end_frame)*1.1
+
+		target_axes.set_xlim(axes_min_x,axes_max_x)
+		target_axes.set_ylim(axes_min_y,axes_max_y)
+
+		try:
+			for text in target_axes.texts:
+				Artist.remove(text)
+
+			target_axes.text(dates_list[end_frame], (axes_max_y+axes_min_y)*0.5, "Current: \n" + str(round(dataset_values[end_frame-1],2)))
+			
+			try:
+				percent_change = round((dataset_values[end_frame-1] - dataset_values[end_frame-1-Averaging_Interval])/(dataset_values[end_frame-1-Averaging_Interval])*100,1)
+				
+				if(end_frame<Averaging_Interval):
+					pass
+				else:
+					target_axes.text(dates_list[end_frame], (axes_max_y+axes_min_y)*0.5-(axes_max_y-axes_min_y)*0.25, "Change (" + str(Averaging_Interval) + "d): \n" + str(percent_change))
+			except:
+				pass
+		except:
+			pass
 
 	return newlines
 
+def get_min_value_dataset(df,target_col, start, end):
+	trunc_df = df[start:end][target_col]
+	min_val = trunc_df.min()
+	
+	if np.isnan(min_val):
+		min_val = 0
+	else:
+		pass
+
+	return min_val
+
+def get_max_value_dataset(df, target_col, start, end):
+	trunc_df = df[start:end][target_col]
+	max_val = trunc_df.max()
+	
+	if np.isnan(max_val):
+		max_val = 1
+	else:
+		pass
+
+	return max_val	
+	
 def get_dates_list(df):
 	raw_dates = df["DATE"].values.tolist()
 
