@@ -1,9 +1,10 @@
 import os
 import pandas as pd
+import numpy as np
 import zipfile
 from datetime import datetime
 
-def merge_csv(folder_name,output_file_name):
+def USEP_merge_csv(folder_name,output_file_name):
 	filepaths = get_filepaths("/" + folder_name)
 
 	compiled_df = pd.DataFrame()
@@ -25,6 +26,23 @@ def merge_csv(folder_name,output_file_name):
 
 	return (output_file_name)
 
+def BRENT_merge_csv(folder_name,output_file_name):
+	filepaths = get_filepaths("/" + folder_name)
+
+	compiled_df = pd.DataFrame()
+
+	for filepath in filepaths:
+		df = pd.read_csv(filepath)
+		compiled_df = compiled_df._append(df, ignore_index = True)
+
+	compiled_df["observation_date"] = pd.to_datetime(compiled_df["observation_date"].apply(parse_date))
+	compiled_df = compiled_df.replace('',np.nan).ffill()
+
+	compiled_df = compiled_df.sort_values(by="observation_date")
+	compiled_df.to_csv(output_file_name)
+
+	return(output_file_name)
+
 def get_filepaths(folder_name):
 	filepaths = []
 	current_dir = os.getcwd()
@@ -40,8 +58,12 @@ def parse_date(datestring):
 	try:
 		parsed_date = datetime.strptime(datestring,"%d %b %Y")
 	except:
-		parsed_date = datetime.strptime(datestring,"%d-%b-%Y")
+		try:
+			parsed_date = datetime.strptime(datestring,"%d-%b-%Y")
+		except:
+			parsed_date = datetime.strptime(datestring,"%d/%m/%Y")
 
 	return (parsed_date)
 
-#merge_csv("USEP Data","Compiled USEP Data.csv")
+#USEP_merge_csv("USEP Data","Compiled USEP Data.csv")
+#BRENT_merge_csv("Oil Data", "Compiled BRENT Data.csv")

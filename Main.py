@@ -1,5 +1,6 @@
 import merge
 import pandas as pd
+import numpy as np
 from datetime import datetime
 
 import matplotlib
@@ -14,18 +15,31 @@ import time
 USEP_Folder = "USEP Data"
 USEP_Compiled_File = "Compiled USEP Data.csv"
 
+BRENT_Folder = "Oil Data"
+BRENT_Compiled_File = "Compiled BRENT Data.csv"
+
 #plt.rcParams.update({'font.size': 16})
-#plt.rcParams['figure.figsize'] = 12.5, 7
+plt.rcParams['figure.figsize'] = 12.5, 7
 
 def main():
-	merge.merge_csv(USEP_Folder, USEP_Compiled_File)
+	merge.USEP_merge_csv(USEP_Folder, USEP_Compiled_File)
+	merge.BRENT_merge_csv(BRENT_Folder, BRENT_Compiled_File)
 
 	df = pd.read_csv(USEP_Compiled_File, usecols=["DATE","USEP ($/MWh)", "DEMAND (MW)"])
+	df2 = pd.read_csv(BRENT_Compiled_File)
+
 	df = add_daily_average(df, "USEP ($/MWh)","DAILY AVERAGE USEP ($/MWh)", 48)
+	df = add_daily_value(df, df2,"DATE","observation_date")
 
-	#df.to_csv("test.csv")
+	df.to_csv("test.csv")
 
-	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","DEMAND (MW)")
+	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","DCOILBRENTEU","DEMAND (MW)")
+
+def add_daily_value(df, df2, df_date_col, df2_date_col):
+	df = df.join(df2.set_index(df2_date_col), on=df_date_col)
+	df = df.replace('',np.nan).ffill()
+
+	return df
 
 def add_daily_average(df, target_col, new_col_name, interval):
 	df[new_col_name] = df[target_col].rolling(interval).mean()
@@ -46,8 +60,8 @@ def create_animation(df, date_col_name, *args):
 	ani = FuncAnimation(fig, create_image, len(df.index), fargs=[fig, df, *args])
 	
 	fig.autofmt_xdate()
-
-	plt.show()
+	#plt.show()
+	ani.save("USEP_animated.gif", fps=15)
 
 	return None
 
@@ -56,8 +70,8 @@ def create_image(end_frame, fig, df, *args):
 	newlines = ()
 	start_frame = 0
 	
-	if end_frame>28:
-		start_frame = end_frame-28
+	if end_frame>365:
+		start_frame = end_frame-365
 
 	for axes_pos,dataset in enumerate(args):
 		
