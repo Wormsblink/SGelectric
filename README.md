@@ -4,7 +4,7 @@ Graphing SG USEP, Brent Crude Price and Energy Demand over time
 
 1. Setup
 
-pip install pandas, bokeh
+pip install pandas, matplotlib
 
 2. Data Sources:
 

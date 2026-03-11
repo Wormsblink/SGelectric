@@ -19,9 +19,9 @@ BRENT_Folder = "Oil Data"
 BRENT_Compiled_File = "Compiled BRENT Data.csv"
 
 #plt.rcParams.update({'font.size': 16})
-plt.rcParams['figure.figsize'] = 14, 7
+plt.rcParams['figure.figsize'] = 14, 12
 
-Averaging_Interval = 28
+Averaging_Interval = 60
 
 def main():
 	merge.USEP_merge_csv(USEP_Folder, USEP_Compiled_File)
@@ -30,16 +30,21 @@ def main():
 	df = pd.read_csv(USEP_Compiled_File, usecols=["DATE","USEP ($/MWh)", "DEMAND (MW)"])
 	
 
-	df = add_daily_average(df, "USEP ($/MWh)","DAILY AVERAGE USEP ($/MWh)", 48)
-	df = add_daily_average(df, "DEMAND (MW)", "DAILY POWER DEMAND (MW)", 48)
+	df = add_rolling_average(df, "USEP ($/MWh)","DAILY AVERAGE USEP ($/MWh)", 48)
+	df = add_rolling_average(df, "DEMAND (MW)", "DAILY POWER DEMAND (MW)", 48)
 	df = df.iloc[24::48, :]
+
+	df = add_rolling_average(df, "DAILY AVERAGE USEP ($/MWh)","28d Averaged USEP ($/MWh)",28)
 
 	df2 = pd.read_csv(BRENT_Compiled_File)
 	df = add_daily_value(df, df2,"DATE","observation_date")
 	df = df.rename(columns={"DCOILBRENTEU":"BRENT CRUDE ($/BBL)"})
-	df.to_csv("test.csv")
 
-	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","BRENT CRUDE ($/BBL)","DAILY POWER DEMAND (MW)")
+	df = add_rolling_average(df,"BRENT CRUDE ($/BBL)","28d Averaged Brent Crude ($/BBL)",28)
+
+	#df.to_csv("test.csv")
+
+	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","BRENT CRUDE ($/BBL)","28d Averaged USEP ($/MWh)","28d Averaged Brent Crude ($/BBL)","DAILY POWER DEMAND (MW)")
 
 def add_daily_value(df, df2, df_date_col, df2_date_col):
 	df = df.join(df2.set_index(df2_date_col), on=df_date_col)
@@ -47,7 +52,7 @@ def add_daily_value(df, df2, df_date_col, df2_date_col):
 
 	return df
 
-def add_daily_average(df, target_col, new_col_name, interval):
+def add_rolling_average(df, target_col, new_col_name, interval):
 	df[new_col_name] = df[target_col].rolling(interval).mean()
 	return df
 
@@ -68,7 +73,7 @@ def create_animation(df, date_col_name, *args):
 	
 	fig.autofmt_xdate()
 	plt.show()
-	#ani.save("USEP_animated.gif", fps=15)
+	#ani.save("USEP_animated.gif", fps=30)
 
 	return None
 
@@ -93,7 +98,7 @@ def create_image(end_frame, fig, df, dates_list, *args):
 		newlines = newlines + newline
 
 		axes_min_x = dates_list[start_frame]
-		axes_max_x = dates_list[end_frame]
+		axes_max_x = dates_list[end_frame+1]
 		axes_min_y = get_min_value_dataset(df,dataset,start_frame,end_frame)*0.9
 		axes_max_y = get_max_value_dataset(df,dataset,start_frame,end_frame)*1.1
 
@@ -104,21 +109,21 @@ def create_image(end_frame, fig, df, dates_list, *args):
 			for text in target_axes.texts:
 				Artist.remove(text)
 
-			target_axes.text(dates_list[end_frame], (axes_max_y+axes_min_y)*0.5, "Current: \n" + str(round(dataset_values[end_frame-1],2)))
+			target_axes.text(dates_list[end_frame+1], (axes_max_y+axes_min_y)*0.5, dates_list[end_frame].strftime("%d %b %y") + ": \n" + str(round(dataset_values[end_frame],2)))
 			
 			try:
-				percent_change = round((dataset_values[end_frame-1] - dataset_values[end_frame-1-Averaging_Interval])/(dataset_values[end_frame-1-Averaging_Interval])*100,1)
+				percent_change = round((dataset_values[end_frame] - dataset_values[end_frame-Averaging_Interval])/(dataset_values[end_frame-Averaging_Interval])*100,1)
 				
 				if(end_frame<Averaging_Interval):
 					pass
 				else:
-					target_axes.text(dates_list[end_frame], (axes_max_y+axes_min_y)*0.5-(axes_max_y-axes_min_y)*0.25, "Change (" + str(Averaging_Interval) + "d): \n" + str(percent_change))
+					target_axes.text(dates_list[end_frame+1], (axes_max_y+axes_min_y)*0.5-(axes_max_y-axes_min_y)*0.25, "Change (" + str(Averaging_Interval) + "d): \n" + str(percent_change) + "%")
 			except:
 				pass
 		except:
 			pass
 
-	return newlines
+	return None
 
 def get_min_value_dataset(df,target_col, start, end):
 	trunc_df = df[start:end][target_col]
