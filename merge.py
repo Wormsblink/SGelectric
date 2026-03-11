@@ -61,7 +61,10 @@ def parse_date(datestring):
 		try:
 			parsed_date = datetime.strptime(datestring,"%d-%b-%Y")
 		except:
-			parsed_date = datetime.strptime(datestring,"%d/%m/%Y")
+			try:
+				parsed_date = datetime.strptime(datestring,"%d/%m/%Y")
+			except:
+				parsed_date = datetime.strptime(datestring,"%Y-%m-%d")
 
 	return (parsed_date)
 

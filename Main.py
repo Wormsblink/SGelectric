@@ -42,7 +42,7 @@ def main():
 
 	df = add_rolling_average(df,"BRENT CRUDE ($/BBL)","28d Averaged Brent Crude ($/BBL)",28)
 
-	#df.to_csv("test.csv")
+	df.to_csv("test.csv")
 
 	create_animation(df, "DATE", "DAILY AVERAGE USEP ($/MWh)","BRENT CRUDE ($/BBL)","28d Averaged USEP ($/MWh)","28d Averaged Brent Crude ($/BBL)","DAILY POWER DEMAND (MW)")
 
@@ -72,8 +72,8 @@ def create_animation(df, date_col_name, *args):
 	ani = FuncAnimation(fig, create_image, len(df.index), fargs=[fig, df, dates_list, *args])
 	
 	fig.autofmt_xdate()
-	plt.show()
-	#ani.save("USEP_animated.gif", fps=30)
+	#plt.show()
+	ani.save("USEP_animated.gif", fps=30)
 
 	return None
 
